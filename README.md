@@ -4,18 +4,19 @@ A robust, in-memory webhook delivery service with exponential backoff retries an
 
 ## Running the Service
 
-To run both the delivery service and the mock endpoint in a single command, open two separate terminal windows or use a background process:
+The assignment requires a **one-line run command**. You can run both the server and the mock endpoint simultaneously using this single command:
 
-**Run the delivery server (Port 8080):**
+**For Mac/Linux (Bash/Zsh):**
 ```bash
-go run ./cmd/server
+go run ./cmd/mockendpoint -mode=flaky & go run ./cmd/server
 ```
 
-**Run the mock customer endpoint (Port 9000):**
-```bash
-go run ./cmd/mockendpoint -mode=flaky
+**For Windows (PowerShell):**
+```powershell
+Start-Job { go run ./cmd/mockendpoint -mode=flaky }; go run ./cmd/server
 ```
-*(Modes available: `flaky`, `fail`, `succeed`)*
+
+*(This starts the mock endpoint in the background on port 9000, and runs the main delivery service in the foreground on port 8080).*
 
 ## API Examples
 
