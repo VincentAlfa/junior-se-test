@@ -8,6 +8,7 @@ import (
 
 var (
 	mode       = flag.String("mode", "fail", "behavior: fail | succeed | slow | flaky")
+	port       = flag.String("port", "9000", "port to listen on")
 	flakyCount = 0
 )
 
@@ -35,8 +36,8 @@ func main() {
 	flag.Parse()
 	http.HandleFunc("/receive", handleRecieve)
 
-	log.Println("mockendpoint: running on :9000")
-	err := http.ListenAndServe(":9000", nil)
+	log.Printf("mockendpoint: running on :%s in %s mode\n", *port, *mode)
+	err := http.ListenAndServe(":"+*port, nil)
 	if err != nil {
 		log.Fatal("Listen and serve", err)
 	}
