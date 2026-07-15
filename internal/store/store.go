@@ -10,6 +10,7 @@ import (
 
 var ErrNotFound = errors.New("not found")
 
+// ponytail: In-memory store. Ceiling: process restart loses all data. Upgrade path: SQLite or PostgreSQL.
 type Store struct {
 	mu           sync.RWMutex
 	events       map[string]*event.Event
@@ -60,8 +61,9 @@ func (s *Store) GetEvent(id string) (*event.Event, error) {
 
 // PollDueEvents returns events that are ready to be retried (status pending or retrying)
 // and next_retry_at is in the past. It respects a max concurrency per customer
-// using the provided inFlight map (which counts how many events are currently processing for each customer).
-func (s *Store) PollDueEvents(limit int, maxPerCustomer int, inFlight map[string]int) []*event.Event {
+// using the provided inFlightC map (which counts how many events are currently processing for each customer).
+// ponytail: O(n) map scan on every poll. Ceiling: CPU spikes when total event history grows large (e.g. 100k+). Upgrade path: maintain a priority queue of due events, or use a SQL index on next_retry_at.
+func (s *Store) PollDueEvents(limit int, maxPerCustomer int, inFlightC map[string]int, inFlightE map[string]struct{}) []*event.Event {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -71,11 +73,15 @@ func (s *Store) PollDueEvents(limit int, maxPerCustomer int, inFlight map[string
 	// Track counts dynamically as we pull to ensure we don't exceed maxPerCustomer
 	// within this very batch.
 	customerCounts := make(map[string]int)
-	for k, v := range inFlight {
+	for k, v := range inFlightC {
 		customerCounts[k] = v
 	}
 
 	for _, evt := range s.events {
+		if _, active := inFlightE[evt.ID]; active {
+			continue
+		}
+
 		if evt.Status != event.StatusPending && evt.Status != event.StatusRetrying {
 			continue
 		}

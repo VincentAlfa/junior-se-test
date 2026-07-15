@@ -51,10 +51,15 @@ func (w *Worker) poll() {
 	for k, v := range w.inFlightC {
 		inFlightCopy[k] = v
 	}
+	inFlightECopy := make(map[string]struct{})
+	for k := range w.inFlight {
+		inFlightECopy[k] = struct{}{}
+	}
 	w.mu.Unlock()
 
+	// ponytail: Worker pool is theoretically unbounded (spawns 1 goroutine per due event). Ceiling: Goroutine explosion if limit is set very high and endpoints are slow. Upgrade path: bounded worker pool pattern using channels.
 	// limit to pulling e.g. 100 events, max 10 per customer
-	dueEvents := w.store.PollDueEvents(100, 10, inFlightCopy)
+	dueEvents := w.store.PollDueEvents(100, 10, inFlightCopy, inFlightECopy)
 
 	w.mu.Lock()
 	for _, evt := range dueEvents {
